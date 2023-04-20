@@ -110,6 +110,8 @@ class ReflexCaptureAgent(CaptureAgent):
               if dist > 1:
                 continue
               stack.push(child)
+        if solution == []:
+          return  random.choice(actions)
         return solution
   
     
