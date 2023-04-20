@@ -67,19 +67,18 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
-    actions = gameState.getLegalActions(self.index)
+    actions = gameState.getLegalActions(self.index) # south north ease est stop
 
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
-    values = [self.evaluate(gameState, a) for a in actions]
+    values = [self.evaluate(gameState, a) for a in actions] # Given legal actions. Evaluate each of them [10,30,-1300,1,3]
     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-
+    #print(values)
     maxValue = max(values)
-    bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
+    bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
     foodLeft = len(self.getFood(gameState).asList())
 
-    if foodLeft <= 2:
+    if foodLeft <= 2:#Can food ever be less than 2?
       bestDist = 9999
       for action in actions:
         successor = self.getSuccessor(gameState, action)
@@ -90,7 +89,7 @@ class ReflexCaptureAgent(CaptureAgent):
           bestDist = dist
       return bestAction
 
-    return random.choice(bestActions)
+    return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
 
   def getSuccessor(self, gameState, action):
     """
@@ -108,8 +107,13 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Computes a linear combination of features and feature weights
     """
+
     features = self.getFeatures(gameState, action)
     weights = self.getWeights(gameState, action)
+    #if self.index is 2:
+      #print(features)
+      #print(weights)
+      #print(features*weights) # the result is a single integer that is computed by multiplying out the common keys
     return features * weights
 
   def getFeatures(self, gameState, action):
@@ -117,8 +121,8 @@ class ReflexCaptureAgent(CaptureAgent):
     Returns a counter of features for the state
     """
     features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
-    features['successorScore'] = self.getScore(successor)
+    successor = self.getSuccessor(gameState, action) # State that occurs after the action
+    features['successorScore'] = self.getScore(successor) # Heuristic score
     return features
 
   def getWeights(self, gameState, action):
@@ -126,7 +130,7 @@ class ReflexCaptureAgent(CaptureAgent):
     Normally, weights do not depend on the gamestate.  They can be either
     a counter or a dictionary.
     """
-    return {'successorScore': 1.0}
+    return {'successorScore': 1.0} 
 
 class OffensiveReflexAgent(ReflexCaptureAgent):
   """
@@ -182,6 +186,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
 
+    #print(features)
     return features
 
   def getWeights(self, gameState, action):
