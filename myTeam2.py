@@ -22,7 +22,7 @@ from util import nearestPoint
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'offenseAgent', second = 'DefensiveReflexAgent'):
+               first = 'defenseAgent2', second = 'defenseAgent2'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -37,6 +37,7 @@ def createTeam(firstIndex, secondIndex, isRed,
   any extra arguments, so you should make sure that the default
   behavior is what you want for the nightly contest.
   """
+
   # The following line is an example only; feel free to change it.
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
@@ -44,11 +45,14 @@ def createTeam(firstIndex, secondIndex, isRed,
 # Agents #
 ##########
 
-class offenseAgent(CaptureAgent):
+
+
+
+class offenseAgent2(CaptureAgent):
   """
   A base class for reflex agents that chooses score-maximizing actions
   """
- 
+
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
@@ -64,52 +68,23 @@ class offenseAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
+    print("asd")
     actions = gameState.getLegalActions(self.index) # south north ease est stop
-    # You can profile your evaluation time by uncommenting these lines
-    start = time.time()
-    values = [self.evaluate(gameState, a) for a in actions] # Given legal actions. Evaluate each of them [10,30,-1300,1,3]
-    # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-    #print(values)
-    if not gameState.getAgentState(self.index).isPacman:
-      self.food = len(self.getFood(gameState).asList())
+    values = [] 
     #Added code for detecting someone close to the pacman
     myPos = gameState.getAgentState(self.index).getPosition()
-
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
     defenders = [a for a in enemies if ((not a.isPacman) and a.getPosition() != None)]
     #print("self",self.index)
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
       closest = min(dists)
-      if closest < 4: # If ghost is near u find shortest path back using bfs
-        solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
-        stack = util.Queue()
-        counter = util.Counter()
-        for a in actions:
-          stack.push((gameState.generateSuccessor(self.index,a),a,a))
-        while stack.isEmpty() is not True:
-            node = stack.pop() # stack pops a state and action list and visited list
-            if counter[node[0].getAgentState(self.index).getPosition()] == 1:
-                continue
-            #print(node[0].getAgentState(self.index).getPosition())
-            if self.isGoal(node[0]):
-                solution = node[1]
-                break
-            counter[node[0].getAgentState(self.index).getPosition()] = 1
-            children = []  
-            for a in node[0].getLegalActions(self.index):
-              children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
-            for child in children:
-              previousPosition = node[0].getAgentState(self.index).getPosition()
-              currentPosition = child[0].getAgentState(self.index).getPosition()
-              dist = self.getMazeDistance(previousPosition, currentPosition)
-              if dist > 1:
-                continue
-              stack.push(child)
-        if solution == []:
-          return  random.choice(actions)
-        #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-        return solution
+      if closest < 6: # If ghost is near u find shortest path back using bfs
+        values = [self.evaluate2(gameState, a) for a in actions]
+      else:
+        values = [self.evaluate(gameState, a) for a in actions] 
+    else:
+      values = [self.evaluate(gameState, a) for a in actions] 
 
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
@@ -126,6 +101,9 @@ class offenseAgent(CaptureAgent):
           bestDist = dist
       return bestAction
 
+    if Directions.STOP in bestActions and len(bestActions)>1 :
+      bestActions.remove(Directions.STOP)
+    
     return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
 
   def getSuccessor(self, gameState, action):
@@ -152,6 +130,24 @@ class offenseAgent(CaptureAgent):
       #print(weights)
       #print(features*weights) # the result is a single integer that is computed by multiplying out the common keys
     return features * weights
+  def evaluate2(self, gameState, action):
+    """
+    Computes a linear combination of features and feature weights
+    """
+    features = self.getFeatures2(gameState, action)
+    weights = self.getWeights2(gameState, action)
+    return features * weights
+
+  def getFeatures2(self, gameState, action):
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)  
+    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    defenders = [a for a in enemies if ((not a.isPacman) and a.getPosition() != None)]
+    if len(defenders) > 0:
+      myPos = successor.getAgentState(self.index).getPosition() 
+      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
+      features['defenderDistance'] = min(dists)   
+    return features 
 
   def getFeatures(self, gameState, action):
     features = util.Counter()
@@ -167,19 +163,14 @@ class offenseAgent(CaptureAgent):
     #print(features)
     return features
 
+  def getWeights2(self, gameState, action):
+    return {'defenderDistance': 10}
+
   def getWeights(self, gameState, action):
     return {'successorScore': 100,'distanceToFood': -1}
 
+class defenseAgent2(CaptureAgent):
 
-
-
-class DefensiveReflexAgent(CaptureAgent):
-  """
-  A reflex agent that keeps its side Pacman-free. Again,
-  this is to give you an idea of what a defensive agent
-  could be like.  It is not the best or only way to make
-  such an agent.
-  """
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
@@ -188,19 +179,12 @@ class DefensiveReflexAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
+    print("asd")
     actions = gameState.getLegalActions(self.index)
 
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
-    actions = gameState.getLegalActions(self.index) # south north ease est stop
-    enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
-    values = []
-
-    if(len(invaders) > 0):
-      values = [self.evaluate(gameState, a) for a in actions]
-    else:
-      values = [self.evaluate2(gameState,a) for a in actions]
+    values = [self.evaluate(gameState, a) for a in actions]
     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
 
     maxValue = max(values)
@@ -240,34 +224,20 @@ class DefensiveReflexAgent(CaptureAgent):
     features = self.getFeatures(gameState, action)
     weights = self.getWeights(gameState, action)
     return features * weights
-    #if self.index is 3:
-      #print(game.Grid.width)
-#      print(features)
- #     print(weights)
-  #    print(features * weights)
-  
 
-  def getFeatures(self, gameState, action):
-    """
-    Returns a counter of features for the state
-    """
-    features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
-    features['successorScore'] = self.getScore(successor)
-    return features
-
-  def getWeights(self, gameState, action):
-    """
-    Normally, weights do not depend on the gamestate.  They can be either
-    a counter or a dictionary.
-    """
-    return {'successorScore': 1.0}
   def getFeatures(self, gameState, action):
     features = util.Counter()
     successor = self.getSuccessor(gameState, action)
 
     myState = successor.getAgentState(self.index)
     myPos = myState.getPosition()
+
+
+    if (self.index%2==0 and myPos[0]<6): 
+      features['badSide'] = 6-myPos[0]
+      #print(5-myPos[0])
+    if (self.index%2==1 and myPos[0]>11):
+      features['badSide'] = myPos[0]-11
 
     # Computes whether we're on defense (1) or offense (0)
     features['onDefense'] = 1
@@ -288,40 +258,4 @@ class DefensiveReflexAgent(CaptureAgent):
     return features
 
   def getWeights(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
-
-  def evaluate2(self, gameState, action):
-    """
-    Computes a linear combination of features and feature weights
-    """
-    features = self.getFeatures2(gameState, action)
-    weights = self.getWeights2(gameState, action)
-    return features * weights
-
-  def getFeatures2(self, gameState, action):
-    features = util.Counter()
-    successor = self.getSuccessor(gameState, action)
-    myState = successor.getAgentState(self.index)
-    myPos = myState.getPosition()
-
-    # Computes whether we're on defense (1) or offense (0)
-    features['onDefense'] = 1
-    if myState.isPacman: features['onDefense'] = 0
-    # Computes distance to invaders we can see
-    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-    invaders = [a for a in enemies if ((not a.isPacman) and a.getPosition() != None)]
-    features['notInvaders'] = len(invaders)
-    if len(invaders) > 0:
-      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
-      features['enemyDistance'] = abs(min(dists))
-
-    if action == Directions.STOP: features['stop'] = 1
-    rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
-    if action == rev: features['reverse'] = 1
-    return features
-
-  def getWeights2(self, gameState, action):
-    return {'numInvaders': -1000, 'onDefense': 100, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
-
-
-
+    return {'numInvaders': -1000,'badSide':-10 ,'onDefense': 100, 'invaderDistance': -10, 'stop': -100, 'reverse': -2}
