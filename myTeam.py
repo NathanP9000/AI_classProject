@@ -22,7 +22,7 @@ from util import nearestPoint
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'offenseAgent', second = 'defenseAgent'):
+               first = 'offenseAgent', second = 'offenseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -54,9 +54,13 @@ class offenseAgent(CaptureAgent):
     CaptureAgent.registerInitialState(self, gameState)
     self.food = len(self.getFood(gameState).asList()) # holds number of food before crossing over
 
+  # successor gameState -> find our agents position getCapsules return true
   def isGoal(self,successor): #Gamestate
     previousState = self.getPreviousObservation()
-    if ((not successor.getAgentState(self.index).isPacman)) : #Need to find specific agent id
+    capsulePath = False    
+    if successor.getAgentState(self.index).getPosition() in previousState.getCapsules():
+      capsulePath = True
+    if ((not successor.getAgentState(self.index).isPacman) or capsulePath) : #Need to find specific agent id
       return True
     return False
 
@@ -77,15 +81,17 @@ class offenseAgent(CaptureAgent):
     myPos = gameState.getAgentState(self.index).getPosition()
 
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    defenders = [a for a in enemies if ((not a.isPacman) and a.getPosition() != None)]
+    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 5) and a.getPosition() != None)]
     #print("self",self.index)
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
       closest = min(dists)
-      if closest < 4: # If ghost is near u find shortest path back using bfs
+      if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
         solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
         stack = util.Queue()
         counter = util.Counter()
+        if self.isGoal(gameState):
+          return Directions.STOP
         for a in actions:
           stack.push((gameState.generateSuccessor(self.index,a),a,a))
         while stack.isEmpty() is not True:
