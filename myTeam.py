@@ -78,7 +78,7 @@ class offenseAgent(CaptureAgent):
     myPos = gameState.getAgentState(self.index).getPosition()
 
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    defenders = [a for a in enemies if ((not a.isPacman) and a.getPosition() != None)]
+    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 5) and a.getPosition() != None)]
     #print("self",self.index)
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
