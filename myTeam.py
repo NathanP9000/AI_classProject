@@ -87,6 +87,8 @@ class offenseAgent(CaptureAgent):
         solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
         stack = util.Queue()
         counter = util.Counter()
+        if self.isGoal(gameState):
+          return Directions.STOP
         for a in actions:
           stack.push((gameState.generateSuccessor(self.index,a),a,a))
         while stack.isEmpty() is not True:
@@ -314,7 +316,7 @@ class defenseAgent(CaptureAgent):
     if minDistance > minDistance2:
       features['distanceToFood'] = self.getMazeDistance(myPos, mF2)
     else:
-      features['distanceToFood'] = self.getMazeDistance(myPos, mF2)
+     features['distanceToFood'] = self.getMazeDistance(myPos, mF2)
 
 
     # Computes whether we're on defense (1) or offense (0)
@@ -335,6 +337,6 @@ class defenseAgent(CaptureAgent):
     return features
 
   def getWeights2(self, gameState, action):
-    return {'numInvaders': -1000,'distanceToFood':-10 ,'onDefense': 1000, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -1000,'distanceToFood':-1 ,'onDefense': 1000, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
 
 
