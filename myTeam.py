@@ -310,9 +310,11 @@ class defenseAgent(CaptureAgent):
         if minDistance2 > dist2:
           minDistance2 = dist2
           mF2 = food
-        
-      print(minDistance)
-      features['distanceToFood'] = min(minDistance,minDistance2)
+      
+    if minDistance > minDistance2:
+      features['distanceToFood'] = self.getMazeDistance(myPos, mF2)
+    else:
+      features['distanceToFood'] = self.getMazeDistance(myPos, mF2)
 
 
     # Computes whether we're on defense (1) or offense (0)
