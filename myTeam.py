@@ -114,7 +114,6 @@ class offenseAgent(CaptureAgent):
       if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
         solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
         stack = util.Queue()
-        print("Offense is running")
         counter = util.Counter()
         if self.isGoal(gameState):
           return Directions.STOP
@@ -140,9 +139,8 @@ class offenseAgent(CaptureAgent):
                 continue
               stack.push(child)
         if solution == []:
-          print("Random move")
           return  random.choice(actions)
-        #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+        print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
         return solution
 
     maxValue = max(values)
@@ -312,7 +310,6 @@ class defenseAgent(CaptureAgent):
           stack.push(child)
     if solution == []:
       self.offense = False
-      print("Random move")
       return  random.choice(actions)
     #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
     self.offense = False
@@ -328,40 +325,42 @@ class defenseAgent(CaptureAgent):
     enemies = [gameState.getAgentState(i) for i in enemyIndices]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     values = [self.evaluate(gameState, a) for a in actions]
+    if(len(invaders) < 1):
+      values = [self.evaluate2(gameState,a) for a in actions]
 
-    #Compute enemy current and previous position if they changed by more than 1, then become an offensive agent
-    enemy1Pos = enemies[0].getPosition()
-    enemy2Pos = enemies[1].getPosition() #current state position for enemies
-    prevState = self.getPreviousObservation()
-    if prevState!=None:
-      enemiesPrev = [prevState.getAgentState(i) for i in enemyIndices]
-      enemy1PosPrev = enemiesPrev[0].getPosition()
-      enemy2PosPrev = enemiesPrev[1].getPosition()
+    # #Compute enemy current and previous position if they changed by more than 1, then become an offensive agent
+    # enemy1Pos = enemies[0].getPosition()
+    # enemy2Pos = enemies[1].getPosition() #current state position for enemies
+    # prevState = self.getPreviousObservation()
+    # if prevState!=None:
+    #   enemiesPrev = [prevState.getAgentState(i) for i in enemyIndices]
+    #   enemy1PosPrev = enemiesPrev[0].getPosition()
+    #   enemy2PosPrev = enemiesPrev[1].getPosition()
 
-      if self.offense == False and self.getMazeDistance(enemy1Pos, enemy1PosPrev) > 1:
-        print(self.offense,enemy1Pos, enemy1PosPrev,self.getMazeDistance(enemy1Pos, enemy1PosPrev))
-        self.offense = True
-      if self.offense == False and self.getMazeDistance(enemy2Pos, enemy2PosPrev) > 1:
-        print(self.offense,enemy2Pos, enemy2PosPrev,self.getMazeDistance(enemy2Pos, enemy2PosPrev))
-        self.offense = True
+    #   if self.offense == False and self.getMazeDistance(enemy1Pos, enemy1PosPrev) > 1:
+    #     print(self.offense,enemy1Pos, enemy1PosPrev,self.getMazeDistance(enemy1Pos, enemy1PosPrev))
+    #     self.offense = True
+    #   if self.offense == False and self.getMazeDistance(enemy2Pos, enemy2PosPrev) > 1:
+    #     print(self.offense,enemy2Pos, enemy2PosPrev,self.getMazeDistance(enemy2Pos, enemy2PosPrev))
+    #     self.offense = True
 
-      if self.offense == False:
-        # If no defender exists then do evaluate 2
-        if(len(invaders) == 0):
-          values = [self.evaluate2(gameState,a) for a in actions]
-        # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-      else:
-        #print("am offense")
-        values = [self.evaluate3(gameState, a) for a in actions]
-        myPos = gameState.getAgentState(self.index).getPosition()
-        defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
-        #print("self",self.index)
-        if len(defenders)> 0:
-          dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-          closest = min(dists)
-          if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
-            print("defense is running", closest)
-            return self.bfs(gameState,actions)
+    #   if self.offense == False:
+    #     # If no defender exists then do evaluate 2
+    #     if(len(invaders) == 0):
+    #       values = [self.evaluate2(gameState,a) for a in actions]
+    #     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+    #   else:
+    #     #print("am offense")
+    #     values = [self.evaluate3(gameState, a) for a in actions]
+    #     myPos = gameState.getAgentState(self.index).getPosition()
+    #     defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
+    #     #print("self",self.index)
+    #     if len(defenders)> 0:
+    #       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
+    #       closest = min(dists)
+    #       if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
+    #         print("defense is running", closest)
+    #         return self.bfs(gameState,actions)
 
 
     maxValue = max(values)
@@ -490,7 +489,7 @@ class defenseAgent(CaptureAgent):
     return features
 
   def getWeights2(self, gameState, action):
-    return {'numInvaders': -1000,'distanceToFood':-1 ,'onDefense': 1000, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -1000,'distanceToFood':-1 ,'onDefense': 100, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
 
 
   def evaluate3(self, gameState, action):
