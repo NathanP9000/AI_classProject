@@ -106,7 +106,7 @@ class offenseAgent(CaptureAgent):
     #Added code for detecting someone close to the pacman
 
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 5) and a.getPosition() != None)]
+    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
     #print("self",self.index)
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
@@ -140,7 +140,7 @@ class offenseAgent(CaptureAgent):
               stack.push(child)
         if solution == []:
           return  random.choice(actions)
-        print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+        #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
         return solution
 
     maxValue = max(values)
@@ -201,7 +201,7 @@ class offenseAgent(CaptureAgent):
 
   def getWeights(self, gameState, action):
     return {'successorScore': 100,'distanceToFood': -1}
-
+  
   def aStarSearch(self, gameState, currentPos, targetPos):
     # Define heuristic function
     def heuristic(state):
@@ -237,7 +237,7 @@ class offenseAgent(CaptureAgent):
             pq.push(successorState, cost + heuristic(successor)+1)
     
     # If no winning action found, return random legal action
-    print("Tried to route from ", currentPos, " to ", targetPos, " and failed.")
+    #print("Tried to route from ", currentPos, " to ", targetPos, " and failed.")
     return [random.choice(state.getLegalActions(self.index))]
 
   # returns a list of entrances
