@@ -17,12 +17,14 @@ import random, time, util
 from game import Directions
 import game
 from util import nearestPoint
+from util import PriorityQueue
+import random
 #################
 # Team creation #
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'offenseAgent', second = 'offenseAgent'):
+               first = 'offenseAgent', second = 'defenseAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -53,6 +55,9 @@ class offenseAgent(CaptureAgent):
     self.start = gameState.getAgentPosition(self.index)
     CaptureAgent.registerInitialState(self, gameState)
     self.food = len(self.getFood(gameState).asList()) # holds number of food before crossing over
+    self.stuck_counter = 0 # initialize stuck counter to 0
+    self.last_position = (0,0)
+    self.actionsToDo = []
 
   # successor gameState -> find our agents position getCapsules return true
   def isGoal(self,successor): #Gamestate
@@ -68,17 +73,37 @@ class offenseAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
+    myPos = gameState.getAgentState(self.index).getPosition()
+    # increment stuck counter if agent is not moving
+    if myPos[1] == self.last_position[1]:
+        self.stuck_counter += 1
+    else:
+        self.stuck_counter = 0
+    self.last_position = myPos
+
+    # reposition to topside or bottomside if stuck for 10-20 moves
+    if self.stuck_counter >= 15 and not gameState.getAgentState(self.index).isPacman:
+      entrances = self.findEntrances(gameState)
+
+      if gameState.isOnRedTeam(self.index):
+          target_pos = (15, random.choice(entrances))
+      else:
+          target_pos = (16, random.choice(entrances))
+      # go to new area
+      self.actionsToDo = self.aStarSearch(gameState, myPos, target_pos)
+    if len(self.actionsToDo) > 0:
+      return self.actionsToDo.pop(0)
+    
     actions = gameState.getLegalActions(self.index) # south north ease est stop
     # You can profile your evaluation time by uncommenting these lines
     start = time.time()
-    print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
     values = [self.evaluate(gameState, a) for a in actions] # Given legal actions. Evaluate each of them [10,30,-1300,1,3]
     # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
     #print(values)
     if not gameState.getAgentState(self.index).isPacman:
       self.food = len(self.getFood(gameState).asList())
     #Added code for detecting someone close to the pacman
-    myPos = gameState.getAgentState(self.index).getPosition()
 
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
     defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 5) and a.getPosition() != None)]
@@ -115,7 +140,7 @@ class offenseAgent(CaptureAgent):
               stack.push(child)
         if solution == []:
           return  random.choice(actions)
-        #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+        print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
         return solution
 
     maxValue = max(values)
@@ -177,8 +202,61 @@ class offenseAgent(CaptureAgent):
   def getWeights(self, gameState, action):
     return {'successorScore': 100,'distanceToFood': -1}
 
+  def aStarSearch(self, gameState, currentPos, targetPos):
+    # Define heuristic function
+    def heuristic(state):
+        #print("manhattan distance: ", util.manhattanDistance(state.getAgentState(self.index).getPosition(), targetPos) )
+        return util.manhattanDistance(state.getAgentState(self.index).getPosition(), targetPos) 
+
+    # Initialize priority queue with start state
+    pq = PriorityQueue()
+    pq.push((gameState, [], heuristic(gameState)), heuristic(gameState))
+
+    # Initialize visited set
+    visited = set()
+
+    # A* search loop
+    while not pq.isEmpty():
+        state, actions, cost = pq.pop()
+        currentPos = state.getAgentState(self.index).getPosition()
+
+        if currentPos == targetPos:
+            return actions
+
+        if state.getAgentState(self.index).isPacman:
+          continue
+
+        if currentPos in visited:
+            continue
+
+        visited.add(currentPos)
+
+        for action in state.getLegalActions(self.index):
+            successor = state.generateSuccessor(self.index, action)
+            successorState = (successor, actions + [action], cost + heuristic(successor)+1)
+            pq.push(successorState, cost + heuristic(successor)+1)
+    
+    # If no winning action found, return random legal action
+    print("Tried to route from ", currentPos, " to ", targetPos, " and failed.")
+    return [random.choice(state.getLegalActions(self.index))]
+
+  # returns a list of entrances
+  def findEntrances(self, gameState):
+    """
+    Returns a list of entrances between the two horizontal sides of the board.
+    """
+    walls = gameState.getWalls()
+    height = gameState.data.layout.height
+    entrances = []
 
 
+
+    for y in range(1, height - 1):
+        if not walls[15][y] and not walls[16][y]:
+            if len(entrances) == 0 or y > entrances[-1] + 1:
+                entrances.append(y)
+
+    return entrances
 
 ####################### 
 #Offensive Agent 2    #  
@@ -251,7 +329,7 @@ class offenseAgent2(CaptureAgent):
     # IF SOMEONE IS CLOSE THAN DODGE THEM
     myPos = gameState.getAgentState(self.index).getPosition()
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 5) and a.getPosition() != None)]
+    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
     #print("self",self.index)
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
