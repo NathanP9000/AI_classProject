@@ -103,7 +103,8 @@ class ReflexCaptureAgent(CaptureAgent):
       return successor.generateSuccessor(self.index, action)
     else:
       return successor
-
+  
+  
   def evaluate(self, gameState, action):
     """
     Computes a linear combination of features and feature weights
