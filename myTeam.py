@@ -66,6 +66,8 @@ class offenseAgent(CaptureAgent):
     if successor.getAgentState(self.index).getPosition() in previousState.getCapsules():
       capsulePath = True
     if ((not successor.getAgentState(self.index).isPacman) or capsulePath) : #Need to find specific agent id
+      self.debugDraw(successor.getAgentState(self.index).getPosition(), (200,200, 200))  
+      self.debugClear()
       return True
     return False
 
@@ -134,6 +136,7 @@ class offenseAgent(CaptureAgent):
             for child in children:
               previousPosition = node[0].getAgentState(self.index).getPosition()
               currentPosition = child[0].getAgentState(self.index).getPosition()
+              self.debugDraw(previousPosition, (100,100, 100)) 
               dist = self.getMazeDistance(previousPosition, currentPosition)
               if dist > 1:
                 continue
@@ -303,6 +306,7 @@ class defenseAgent(CaptureAgent):
           children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
         for child in children:
           previousPosition = node[0].getAgentState(self.index).getPosition()
+
           currentPosition = child[0].getAgentState(self.index).getPosition()
           dist = self.getMazeDistance(previousPosition, currentPosition)
           if dist > 1:

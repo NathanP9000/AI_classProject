@@ -19,7 +19,6 @@ import game
 from util import nearestPoint
 from util import PriorityQueue
 import random
-import copy
 #################
 # Team creation #
 #################
@@ -59,7 +58,6 @@ class offenseAgent(CaptureAgent):
     self.stuck_counter = 0 # initialize stuck counter to 0
     self.last_position = (0,0)
     self.actionsToDo = []
-    self.escape = []
 
   # successor gameState -> find our agents position getCapsules return true
   def isGoal(self,successor): #Gamestate
@@ -68,6 +66,8 @@ class offenseAgent(CaptureAgent):
     if successor.getAgentState(self.index).getPosition() in previousState.getCapsules():
       capsulePath = True
     if ((not successor.getAgentState(self.index).isPacman) or capsulePath) : #Need to find specific agent id
+      self.debugDraw(successor.getAgentState(self.index).getPosition(), (200,200, 200))  
+      self.debugClear()
       return True
     return False
 
@@ -75,18 +75,11 @@ class offenseAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
-    actions = gameState.getLegalActions(self.index) # south north ease est stop
-    if gameState.getInitialAgentPosition(self.index) == gameState.getAgentState(self.index).getPosition():
-        self.actionsToDo = []
-    if len(self.actionsToDo) > 0:
-      act = self.actionsToDo.pop(0)
-      if act in actions:
-        return act
-      else:
-        self.actionToDo = []
-        print("Failure on Offense")
-
     myPos = gameState.getAgentState(self.index).getPosition()
+
+    if myPos == gameState.getInitialAgentPosition(self.index):
+      self.debugClear()
+
     # increment stuck counter if agent is not moving
     if myPos[1] == self.last_position[1]:
         self.stuck_counter += 1
@@ -104,10 +97,10 @@ class offenseAgent(CaptureAgent):
           target_pos = (16, random.choice(entrances))
       # go to new area
       self.actionsToDo = self.aStarSearch(gameState, myPos, target_pos)
+    if len(self.actionsToDo) > 0:
       return self.actionsToDo.pop(0)
-
     
-    
+    actions = gameState.getLegalActions(self.index) # south north ease est stop
     # You can profile your evaluation time by uncommenting these lines
     start = time.time()
     #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
@@ -121,21 +114,24 @@ class offenseAgent(CaptureAgent):
     enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
     defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
     #print("self",self.index)
+    x=100
     if len(defenders)> 0:
       dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
       closest = min(dists)
       if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
         solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
-        stack = util.Queue()
+        stack = util.PriorityQueue()
         counter = util.Counter()
         if self.isGoal(gameState):
           return Directions.STOP
         for a in actions:
-          stack.push((gameState.generateSuccessor(self.index,a),[a]))
+          stack.push((gameState.generateSuccessor(self.index,a),a,1),1)
+        
         while stack.isEmpty() is not True:
             node = stack.pop() # stack pops a state and action list and visited list
             if counter[node[0].getAgentState(self.index).getPosition()] == 1:
                 continue
+
             #print(node[0].getAgentState(self.index).getPosition())
             if self.isGoal(node[0]):
                 solution = node[1]
@@ -143,21 +139,37 @@ class offenseAgent(CaptureAgent):
             counter[node[0].getAgentState(self.index).getPosition()] = 1
             children = []  
             for a in node[0].getLegalActions(self.index):
-              actions = copy.deepcopy(node[1])
-              actions.append(a)
-              children.append((node[0].generateSuccessor(self.index,a),actions))# each child is a gamestate
+              children.append([node[0].generateSuccessor(self.index,a),node[1],node[2]+1])# each child is a gamestate
             for child in children:
+
+              currentPosition= child[0].getAgentState(self.index).getPosition()
               previousPosition = node[0].getAgentState(self.index).getPosition()
-              currentPosition = child[0].getAgentState(self.index).getPosition()
+              #print(x)
+              self.debugDraw(currentPosition, (x,x, x))  
+              #self.debugDraw(previousPosition, (50,50,50))
+
               dist = self.getMazeDistance(previousPosition, currentPosition)
               if dist > 1:
                 continue
-              stack.push(child)
+              enemiesPrev = [node[0].getAgentState(i) for i in self.getOpponents(node[0])]
+              defendersPrev = [a for a in enemiesPrev if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
+              distsPrev = [self.getMazeDistance(previousPosition, a.getPosition()) for a in defendersPrev]
+              closestPrev = min(dists)
+
+              enemiesCurr= [child[0].getAgentState(i) for i in self.getOpponents(child[0])]
+              defendersCurr = [a for a in enemiesCurr if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
+              distsCurr = [self.getMazeDistance(currentPosition, a.getPosition()) for a in defendersCurr]
+              closestCurr = min(dists)
+              if closestCurr > closestPrev:
+                stack.push(child,child[2])
+              else:
+                #child[2]-=10
+                stack.push(child,child[2])
         if solution == []:
+          print("random")
           return  random.choice(actions)
         #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-        self.actionsToDo = solution
-        return self.actionsToDo.pop(0)
+        return solution
 
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
@@ -299,12 +311,12 @@ class defenseAgent(CaptureAgent):
 
   def bfs(self,gameState,actions):
     solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
-    stack = util.Queue()
+    stack = util.Stack()
     counter = util.Counter()
     if self.isGoal(gameState):
       return Directions.STOP
     for a in actions:
-      stack.push((gameState.generateSuccessor(self.index,a),a,a))
+      stack.push((gameState.generateSuccessor(self.index,a),a))
     while stack.isEmpty() is not True:
         node = stack.pop() # stack pops a state and action list and visited list
         if counter[node[0].getAgentState(self.index).getPosition()] == 1:
@@ -316,10 +328,11 @@ class defenseAgent(CaptureAgent):
         counter[node[0].getAgentState(self.index).getPosition()] = 1
         children = []  
         for a in node[0].getLegalActions(self.index):
-          children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
+          children.append((node[0].generateSuccessor(self.index,a),node[1]))# each child is a gamestate
         for child in children:
           previousPosition = node[0].getAgentState(self.index).getPosition()
           currentPosition = child[0].getAgentState(self.index).getPosition()
+
           dist = self.getMazeDistance(previousPosition, currentPosition)
           if dist > 1:
             continue
@@ -505,7 +518,7 @@ class defenseAgent(CaptureAgent):
     return features
 
   def getWeights2(self, gameState, action):
-    return {'numInvaders': -1000,'distanceToFood':-1 ,'onDefense': 100, 'enemyDistance': -1, 'stop': -100, 'reverse': -2}
+    return {'numInvaders': -10000,'distanceToFood':-1 ,'onDefense': 1000, 'enemyDistance': -1, 'stop': -1000, 'reverse': -20}
 
 
   def evaluate3(self, gameState, action):
