@@ -57,111 +57,189 @@ class offenseAgent(CaptureAgent):
     self.food = len(self.getFood(gameState).asList()) # holds number of food before crossing over
     self.stuck_counter = 0 # initialize stuck counter to 0
     self.last_position = (0,0)
-    self.actionsToDo = []
+    if self.red:
+      self.ourSideCenter = gameState.data.layout.width // 2 - 1
+      self.theirSideCenter = gameState.data.layout.width // 2
+      self.enemyOffenseAgent = 1
+    else:
+      self.enemyOffenseAgent = 0
+      self.ourSideCenter = gameState.data.layout.width // 2 
+      self.theirSideCenter = gameState.data.layout.width // 2 - 1
+    self.entrances = self.findEntrances(gameState)
+    self.up = True
+    self.targetCap = (0,0)
+    self.capsuleTarget = False 
 
   # successor gameState -> find our agents position getCapsules return true
-  def isGoal(self,successor): #Gamestate
-    previousState = self.getPreviousObservation()
-    capsulePath = False    
-    if successor.getAgentState(self.index).getPosition() in previousState.getCapsules():
-      capsulePath = True
-    if ((not successor.getAgentState(self.index).isPacman) or capsulePath) : #Need to find specific agent id
-      self.debugDraw(successor.getAgentState(self.index).getPosition(), (200,200, 200))  
-      self.debugClear()
+  # def isGoal(self,successor): #Gamestate
+  #   previousState = self.getPreviousObservation()
+  #   capsulePath = False    
+  #   if successor.getAgentState(self.index).getPosition() in previousState.getCapsules():
+  #     capsulePath = True
+  #   if (capsulePath) : #Need to find specific agent id
+  #     return True
+  #   return False
+  # def bfs(self, gameState, actions):
+  #   solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
+  #   stack = util.Queue()
+  #   counter = util.Counter()
+  #   if self.isGoal(gameState):
+  #     return Directions.STOP
+  #   for a in actions:
+  #     stack.push((gameState.generateSuccessor(self.index,a),a,a))
+  #   while stack.isEmpty() is not True:
+  #       node = stack.pop() # stack pops a state and action list and visited list
+  #       if counter[node[0].getAgentState(self.index).getPosition()] == 1:
+  #           continue
+  #       if node[0].getAgentState(self.index).isPacman:
+  #         continue
+  #       ##print(node[0].getAgentState(self.index).getPosition())
+  #       if self.isGoal(node[0]):
+  #           solution = node[1]
+  #           break
+  #       counter[node[0].getAgentState(self.index).getPosition()] = 1
+  #       children = []  
+  #       for a in node[0].getLegalActions(self.index):
+  #         children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
+  #       for child in children:
+  #         stack.push(child)
+  #   if solution == []:
+  #     #print("random choice")
+  #     return  random.choice(actions)
+  #   ##print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+  #   return solution
+
+
+  #Bfs to up and don
+  def isGoal2(self,successor, targetPosition):
+    if successor.getAgentState(self.index).getPosition() == targetPosition:
       return True
     return False
+
+  def bfs2(self, gameState, actions, targetPos):
+    def heuristic(gameState2):
+      print("Heuristic ,",self.distancer.getDistance(targetPos, gameState2.getAgentState(self.index).getPosition()))
+      return self.distancer.getDistance(targetPos, gameState2.getAgentState(self.index).getPosition())
+
+    solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
+    stack = util.PriorityQueue()
+    counter = util.Counter()
+    if self.isGoal2(gameState, targetPos):
+      return Directions.STOP
+    for a in actions:
+      stack.push((gameState.generateSuccessor(self.index,a),a,a),heuristic(gameState.generateSuccessor(self.index,a)))
+    while stack.isEmpty() is not True:
+
+        node = stack.pop() # stack pops a state and action list and visited list
+        if counter[node[0].getAgentState(self.index).getPosition()] == 1:
+            continue
+        ##print(node[0].getAgentState(self.index).getPosition())
+        if self.isGoal2(node[0],targetPos):
+            solution = node[1]
+            break
+        counter[node[0].getAgentState(self.index).getPosition()] = 1
+        children = []  
+        self.debugDraw(node[0].getAgentPosition(self.index), (200,100,150))
+        for a in node[0].getLegalActions(self.index):
+          children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
+        for child in children:
+          stack.push(child,heuristic(child[0]))
+    if solution == []:
+      return  (random.choice(actions), False)
+    ##print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    return (solution, True)
 
   def chooseAction(self, gameState):
     """
     Picks among the actions with the highest Q(s,a).
     """
-    myPos = gameState.getAgentState(self.index).getPosition()
-    # increment stuck counter if agent is not moving
-    if myPos[1] == self.last_position[1]:
-        self.stuck_counter += 1
-    else:
-        self.stuck_counter = 0
-    self.last_position = myPos
-
-    # reposition to topside or bottomside if stuck for 10-20 moves
-    if self.stuck_counter >= 15 and not gameState.getAgentState(self.index).isPacman:
-      entrances = self.findEntrances(gameState)
-
-      if gameState.isOnRedTeam(self.index):
-          target_pos = (15, random.choice(entrances))
+    self.debugClear()
+    actions = gameState.getLegalActions(self.index)
+    if self.targetCap not in self.getCapsules(gameState):
+      self.capsuleTarget = False
+    if self.capsuleTarget == True:
+      ret =  self.bfs2(gameState,actions,self.targetCap)
+      self.debugDraw(self.targetCap, (120,120,200))
+      if(ret[1]== False):
+        print("Abort")
+        self.capsuleTarget = False
       else:
-          target_pos = (16, random.choice(entrances))
-      # go to new area
-      self.actionsToDo = self.aStarSearch(gameState, myPos, target_pos)
-    if len(self.actionsToDo) > 0:
-      return self.actionsToDo.pop(0)
-    
+        return ret[0]
+    myPos = gameState.getAgentState(self.index).getPosition()
+
     actions = gameState.getLegalActions(self.index) # south north ease est stop
-    # You can profile your evaluation time by uncommenting these lines
-    start = time.time()
-    #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-    values = [self.evaluate(gameState, a) for a in actions] # Given legal actions. Evaluate each of them [10,30,-1300,1,3]
-    # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-    #print(values)
-    if not gameState.getAgentState(self.index).isPacman:
-      self.food = len(self.getFood(gameState).asList())
-    #Added code for detecting someone close to the pacman
 
-    enemies = [gameState.getAgentState(i) for i in self.getOpponents(gameState)]
-    defenders = [a for a in enemies if ((not a.isPacman) and (not a.scaredTimer > 10) and a.getPosition() != None)]
-    #print("self",self.index)
-    if len(defenders)> 0:
-      dists = [self.getMazeDistance(myPos, a.getPosition()) for a in defenders]
-      closest = min(dists)
-      if ( not gameState.getAgentState(self.index).isPacman and  closest < 4) or ( gameState.getAgentState(self.index).isPacman and  closest < 5): # If ghost is near u find shortest path back using bfs
-        solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
-        stack = util.Queue()
-        counter = util.Counter()
-        if self.isGoal(gameState):
-          return Directions.STOP
-        for a in actions:
-          stack.push((gameState.generateSuccessor(self.index,a),a,a))
-        while stack.isEmpty() is not True:
-            node = stack.pop() # stack pops a state and action list and visited list
-            if counter[node[0].getAgentState(self.index).getPosition()] == 1:
-                continue
-            #print(node[0].getAgentState(self.index).getPosition())
-            if self.isGoal(node[0]):
-                solution = node[1]
-                break
-            counter[node[0].getAgentState(self.index).getPosition()] = 1
-            children = []  
-            for a in node[0].getLegalActions(self.index):
-              children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
-            for child in children:
-              previousPosition = node[0].getAgentState(self.index).getPosition()
-              currentPosition = child[0].getAgentState(self.index).getPosition()
-              self.debugDraw(previousPosition, (100,100, 100)) 
-              dist = self.getMazeDistance(previousPosition, currentPosition)
-              if dist > 1:
-                continue
-              stack.push(child)
-        if solution == []:
-          return  random.choice(actions)
-        #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-        return solution
+    entrances = self.findEntrances(gameState)
+    curr = myPos[1]
+    chosen=-1
+    act = Directions.STOP
+    # if self.red and myPos[0] > 13:
+    #   act = self.bfs(gameState, actions) 
+    # elif not self.red and myPos[0] < 20:
+    #   act = self.bfs(gameState, actions) 
+    for cap in self.getCapsules(gameState):
+      enemyDist = min([self.distancer.getDistance(cap, gameState.getAgentState(a).getPosition()) for a in self.getOpponents(gameState)])
+      print(self.getCapsules(gameState))
+      myDist = self.distancer.getDistance(cap, gameState.getAgentState(self.index).getPosition())
+      print(enemyDist, myDist)
+      if not self.capsuleTarget and  myDist< enemyDist:
+        self.capsuleTarget = True
+        self.targetCap = cap
+        print(self.targetCap)
+    if self.capsuleTarget:
+      print("bfs", self.targetCap)
+      ret =  self.bfs2(gameState,actions,self.targetCap)
+      if(ret[1]== False):
+        print("Abort")
+        self.capsuleTarget = False
+      else:     
+        return ret[0]
+      
 
-    maxValue = max(values)
-    bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
-    foodLeft = len(self.getFood(gameState).asList())
+    if act != Directions.STOP:
+      print(act)
+      return act
+    if not self.up:
+      start = len(entrances)-1
+      while start >=0 :
+        if entrances[start] < curr:
+          chosen = entrances[start]
+          break
+        start-=1
+      if start == 0: 
+        self.up = True
+    else:
+      start = 0
+      while start <len(entrances) :
+        if entrances[start] > curr:
+          chosen = entrances[start]
+          break
+        start+=1   
+      if start  >= len(entrances)-1: 
+        self.up = False
+    target_pos = (self.ourSideCenter, chosen)
+    #print(target_pos)
+    #self.debugDraw(target_pos, (100,100,100))
+    ret = self.bfs2(gameState,actions,target_pos)
+    return ret[0]
 
-    if foodLeft <= 2:#Can food ever be less than 2?
-      bestDist = 9999
-      for action in actions:
-        successor = self.getSuccessor(gameState, action)
-        pos2 = successor.getAgentPosition(self.index)
-        dist = self.getMazeDistance(self.start,pos2)
-        if dist < bestDist:
-          bestAction = action
-          bestDist = dist
-      return bestAction
+    # maxValue = max(values)
+    # bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
+    # foodLeft = len(self.getFood(gameState).asList())
 
-    return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
+    # if foodLeft <= 2:#Can food ever be less than 2?
+    #   bestDist = 9999
+    #   for action in actions:
+    #     successor = self.getSuccessor(gameState, action)
+    #     pos2 = successor.getAgentPosition(self.index)
+    #     dist = self.getMazeDistance(self.start,pos2)
+    #     if dist < bestDist:
+    #       bestAction = action
+    #       bestDist = dist
+    #   return bestAction
+
+    # return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
+
 
   def getSuccessor(self, gameState, action):
     """
@@ -174,18 +252,40 @@ class offenseAgent(CaptureAgent):
       return successor.generateSuccessor(self.index, action)
     else:
       return successor
+  def evaluate2(self, gameState, action):
+    """
+    Computes a linear combination of features and feature weights
+    """
+    features = self.getFeatures2(gameState, action)
+    weights = self.getWeights2(gameState, action)
+    return features * weights
 
+  def getFeatures2(self, gameState,action):
+    features = util.Counter()
+    successor = self.getSuccessor(gameState, action)
+    foodList = self.getFood(successor).asList()    
+    features['successorScore'] = -len(foodList)#self.getScore(successor)
+    cap = self.getCapsules(gameState)
+    # Compute distance to the nearest food
+    if len(cap) > 0: # If there exist capsules
+      myPos = successor.getAgentState(self.index).getPosition()  
+      minDistance = min([self.getMazeDistance(myPos, caps) for caps in cap])
+      features['distanceToCap'] = minDistance
+    ##print(features)
+    return features
+
+  def getWeights2(self, gameState, action):
+    return {'successorScore': 100,'distanceToCap': -1}
   def evaluate(self, gameState, action):
     """
     Computes a linear combination of features and feature weights
     """
-
     features = self.getFeatures(gameState, action)
     weights = self.getWeights(gameState, action)
     #if self.index is 1:
-      #print(features)
-      #print(weights)
-      #print(features*weights) # the result is a single integer that is computed by multiplying out the common keys
+      ##print(features)
+      ##print(weights)
+      ##print(features*weights) # the result is a single integer that is computed by multiplying out the common keys
     return features * weights
 
   def getFeatures(self, gameState, action):
@@ -199,49 +299,12 @@ class offenseAgent(CaptureAgent):
       myPos = successor.getAgentState(self.index).getPosition()  
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
-    #print(features)
+    ##print(features)
     return features
 
   def getWeights(self, gameState, action):
     return {'successorScore': 100,'distanceToFood': -1}
   
-  def aStarSearch(self, gameState, currentPos, targetPos):
-    # Define heuristic function
-    def heuristic(state):
-        #print("manhattan distance: ", util.manhattanDistance(state.getAgentState(self.index).getPosition(), targetPos) )
-        return util.manhattanDistance(state.getAgentState(self.index).getPosition(), targetPos) 
-
-    # Initialize priority queue with start state
-    pq = PriorityQueue()
-    pq.push((gameState, [], heuristic(gameState)), heuristic(gameState))
-
-    # Initialize visited set
-    visited = set()
-
-    # A* search loop
-    while not pq.isEmpty():
-        state, actions, cost = pq.pop()
-        currentPos = state.getAgentState(self.index).getPosition()
-
-        if currentPos == targetPos:
-            return actions
-
-        if state.getAgentState(self.index).isPacman:
-          continue
-
-        if currentPos in visited:
-            continue
-
-        visited.add(currentPos)
-
-        for action in state.getLegalActions(self.index):
-            successor = state.generateSuccessor(self.index, action)
-            successorState = (successor, actions + [action], cost + heuristic(successor)+1)
-            pq.push(successorState, cost + heuristic(successor)+1)
-    
-    # If no winning action found, return random legal action
-    #print("Tried to route from ", currentPos, " to ", targetPos, " and failed.")
-    return [random.choice(state.getLegalActions(self.index))]
 
   # returns a list of entrances
   def findEntrances(self, gameState):
@@ -251,14 +314,9 @@ class offenseAgent(CaptureAgent):
     walls = gameState.getWalls()
     height = gameState.data.layout.height
     entrances = []
-
-
-
     for y in range(1, height - 1):
-        if not walls[15][y] and not walls[16][y]:
-            if len(entrances) == 0 or y > entrances[-1] + 1:
-                entrances.append(y)
-
+        if not walls[self.ourSideCenter][y] and not walls[self.theirSideCenter][y]:
+          entrances.append(y)
     return entrances
 
 # perfect mirror
@@ -281,10 +339,10 @@ class mirrorDefenseAgent(CaptureAgent):
       self.entrances = self.findEntrances(gameState)
       self.enemyClosestEntrance = self.entrances[0]
       # our side center and their side center for entrance calculations
-      print("Entrances: ", self.entrances)
-      for entrance in self.entrances:
-        self.debugDraw((self.ourSideCenter, entrance), (200, 200, 200))
-        self.debugDraw((self.theirSideCenter, entrance), (100, 100, 200))
+      ##print("Entrances: ", self.entrances)
+      # for entrance in self.entrances:
+      #   self.debugDraw((self.ourSideCenter, entrance), (200, 200, 200))
+      #   self.debugDraw((self.theirSideCenter, entrance), (100, 100, 200))
 
   def chooseAction(self, gameState):
     """
@@ -318,24 +376,24 @@ class mirrorDefenseAgent(CaptureAgent):
       for entry in self.entrances:
         if self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry)) < minDistance:
           minDistance = self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry))
-          #print("Min distance: ", minDistance)
+          ##print("Min distance: ", minDistance)
           self.enemyClosestEntrance = entry
       self.debugDraw((self.theirSideCenter, self.enemyClosestEntrance), (50, 50, 50))
-      #print("Closest entrance is at y-level: ", self.enemyClosestEntrance)
+      ##print("Closest entrance is at y-level: ", self.enemyClosestEntrance)
 
       #bfs
       return self.bfs(gameState, actions)
 
       values = [self.evaluate2(gameState, a) for a in actions] # Given legal actions. Evaluate each of them [10,30,-1300,1,3]
-    # print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
-    #print(values)
+    # #print 'eval time for agent %d: %.4f' % (self.index, time.time() - start)
+    ##print(values)
     maxValue = max(values)
     bestActions = [a for a, v in zip(actions, values) if v == maxValue] # Choose the best action
     foodLeft = len(self.getFood(gameState).asList()) 
 
-    # printing the actions and their values
-    print("values: ", values)
-    print("actions: ", actions)
+    # #printing the actions and their values
+    #print("values: ", values)
+    #print("actions: ", actions)
         
     
     if foodLeft <= 2:#Can food ever be less than 2?
@@ -397,7 +455,7 @@ class mirrorDefenseAgent(CaptureAgent):
     rev = Directions.REVERSE[gameState.getAgentState(self.index).configuration.direction]
     if action == rev: features['reverse'] = 1
 
-    #print(features)
+    ##print(features)
     return features
 
   def getWeights(self, gameState, action):
@@ -445,13 +503,9 @@ class mirrorDefenseAgent(CaptureAgent):
     walls = gameState.getWalls()
     height = gameState.data.layout.height
     entrances = []
-
-
-
     for y in range(1, height - 1):
         if not walls[self.ourSideCenter][y] and not walls[self.theirSideCenter][y]:
           entrances.append(y)
-
     return entrances
   def bfs(self,gameState,actions):
     solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
@@ -467,7 +521,7 @@ class mirrorDefenseAgent(CaptureAgent):
             continue
         if node[0].getAgentState(self.index).isPacman:
           continue
-        #print(node[0].getAgentState(self.index).getPosition())
+        ##print(node[0].getAgentState(self.index).getPosition())
         if self.isGoal(node[0]):
             solution = node[1]
             break
@@ -480,7 +534,7 @@ class mirrorDefenseAgent(CaptureAgent):
     if solution == []:
       self.offense = False
       return  random.choice(actions)
-    #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    ##print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
     self.offense = False
     return solution
 
@@ -505,7 +559,7 @@ class mirrorDefenseAgent(CaptureAgent):
             continue
         if node[0].getAgentState(self.index).isPacman:
           continue
-        #print(node[0].getAgentState(self.index).getPosition())
+        ##print(node[0].getAgentState(self.index).getPosition())
         if self.isGoal(node[0]):
             solution = node[1]
             break
@@ -518,7 +572,7 @@ class mirrorDefenseAgent(CaptureAgent):
     if solution == []:
       self.offense = False
       return  random.choice(actions)
-    #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
+    ##print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
     self.offense = False
     return solution
 
