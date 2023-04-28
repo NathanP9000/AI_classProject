@@ -302,14 +302,14 @@ class mirrorDefenseAgent(CaptureAgent):
 
       # ensure you have the right enemy offense agent
       # find the closer invader
-      #minDistance = 100
-      #closestInvader = -1
-      #for invader in invaders:
-      #  if self.distancer.getDistance(invader.getPosition(), gameState.getPosition()) < minDistance:
-      #    minDistance = self.distancer.getDistance(invader.getPosition(), gameState.getPosition())
-      #    closestInvader = invader.index        
-      #self.enemyOffenseAgent = invaders[closestInvader]
-      self.enemyOffenseAgent = enemiesIndexes[0]
+      minDistance = 100
+      closestInvader = -1
+      for enemy in enemiesIndexes:
+        if gameState.getAgentState(enemy).isPacman:
+          if self.distancer.getDistance(gameState.getAgentPosition(enemy), gameState.getAgentPosition(self.index)) < minDistance:
+            minDistance = self.distancer.getDistance(gameState.getAgentPosition(enemy), gameState.getAgentPosition(self.index))
+            closestInvader = enemy        
+      self.enemyOffenseAgent = closestInvader
       values = [self.evaluate(gameState, a) for a in actions]
     else: #no attackers, mirror enemy
       # determine which entrance the enemy is closest to
@@ -348,6 +348,12 @@ class mirrorDefenseAgent(CaptureAgent):
           bestAction = action
           bestDist = dist
       return bestAction
+    
+    # if the action turns you into a pacman, get rid of it
+    for bestAction in bestActions:
+      successor = self.getSuccessor(gameState, bestAction)
+      if not successor.getAgentState(self.index).isPacman:
+        return bestAction
 
     return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
 
@@ -487,44 +493,6 @@ class mirrorDefenseAgent(CaptureAgent):
   # goal state is when you are mirroring their offense agent on their closest entrance
   def isGoal(self, gameState):
     previousState = self.getPreviousObservation()
-    if gameState.getAgentState(self.index).getPosition() == (self.ourSideCenter, self.enemyClosestEntrance): #goal is to match them
-      return True
-    return False
-
-  def bfs2(self,gameState,actions):
-    solution = [] #cannot hardcode this because it might be illegal. figure out better solution the problem is sometimes the stack empties out and nothing is returned
-    stack = util.Queue()
-    counter = util.Counter()
-    if self.isGoal(gameState):
-      return Directions.STOP
-    for a in actions:
-      stack.push((gameState.generateSuccessor(self.index,a),a,a))
-    while stack.isEmpty() is not True:
-        node = stack.pop() # stack pops a state and action list and visited list
-        if counter[node[0].getAgentState(self.index).getPosition()] == 1:
-            continue
-        if node[0].getAgentState(self.index).isPacman:
-          continue
-        #print(node[0].getAgentState(self.index).getPosition())
-        if self.isGoal(node[0]):
-            solution = node[1]
-            break
-        counter[node[0].getAgentState(self.index).getPosition()] = 1
-        children = []
-        for a in node[0].getLegalActions(self.index):
-          children.append((node[0].generateSuccessor(self.index,a),node[1],a))# each child is a gamestate
-        for child in children:
-          stack.push(child)
-    if solution == []:
-      self.offense = False
-      return  random.choice(actions)
-    #print('eval time for agent %d: %.4f' % (self.index, time.time() - start))
-    self.offense = False
-    return solution
-
-  # goal state is when you are mirroring their offense agent on their closest entrance
-  def isGoal2(self, gameState):
-    previousState = self.getPreviousObservation()
-    if gameState.getAgentState(self.index).getPosition() == (self.ourSideCenter, self.enemyClosestEntrance): #goal is to match them
+    if self.getMazeDistance(gameState.getAgentState(self.index).getPosition(), (self.ourSideCenter, self.enemyClosestEntrance)) == self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,self.enemyClosestEntrance)): #goal is to match them
       return True
     return False
