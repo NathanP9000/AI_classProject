@@ -107,12 +107,7 @@ class ReflexCaptureAgent(CaptureAgent):
       #print(weights)
       #print(features*weights) # the result is a single integer that is computed by multiplying out the common keys
     return features * weights
-    #if self.index is 3:
-      #print(game.Grid.width)
-#      print(features)
- #     print(weights)
-  #    print(features * weights)
-  
+
 
   def getFeatures(self, gameState, action):
     """

@@ -33,7 +33,7 @@ from util import nearestPoint
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'OffensiveReflexAgent', second = 'DefensiveReflexAgent'):
+               first = 'ReflexCaptureAgent', second = 'ReflexCaptureAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -67,6 +67,7 @@ class ReflexCaptureAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
+    
     actions = gameState.getLegalActions(self.index) # south north ease est stop
 
     # You can profile your evaluation time by uncommenting these lines
@@ -88,8 +89,14 @@ class ReflexCaptureAgent(CaptureAgent):
           bestAction = action
           bestDist = dist
       return bestAction
-
-    return random.choice(bestActions) #given 2 or more moves that have the same heuristic value choose one randomly
+    z = random.choice(bestActions)
+    # successor = self.getSuccessor(gameState, random.choice(bestActions))
+    # successor2 = self.getSuccessor(successor, random.choice(successor.getLegalActions(self.index)))
+    # successor3 = self.getSuccessor(successor2, random.choice(successor2.getLegalActions(self.index)))
+    # successor4 = self.getSuccessor(successor3, random.choice(successor3.getLegalActions(self.index)))
+    # successor5 = self.getSuccessor(successor4, random.choice(successor4.getLegalActions(self.index)))
+    # self.debugDraw(successor5.getAgentPosition(self.getOpponents(successor5)[0]), (100,100,200))
+    return z #given 2 or more moves that have the same heuristic value choose one randomly
 
   def getSuccessor(self, gameState, action):
     """
