@@ -1,0 +1,44 @@
+#!/bin/bash
+# Take in three arguments: team1, team2, and number of times to run the command
+team1=$1
+team2=$2
+num_runs=$3
+
+# Initialize win count to 0
+win_count=0
+loss_count=0
+tie_count=0
+
+if [ $# -ne 3 ]; then
+  echo "Error: Expected three arguments: team1, team2, and number of runs."
+  exit 1
+fi
+
+# Loop through the command num_runs times
+for ((i=1; i<=$num_runs; i++))
+do
+  # Run the command and store the output in a variable
+  output=$(python capture.py -r $team1 -b $team2 -i 600 -l RANDOM --quiet)
+
+  echo $output
+  
+  # Check if the output contains the name of team1 or team2
+  if [[ $output == *"Red team wins"* ]]
+  then
+    # Increment win count if team1 won
+    ((win_count++))
+  elif [[ $output == *"Blue team wins"* ]]
+  then
+    # Increment loss count if team1 lost
+    ((loss_count++))
+  elif [[ $output == *Tie* ]]
+  then
+    # Increment tie count if there was a tie
+    ((tie_count++))
+  fi
+done
+
+# Print the win count, loss count, tie count, and total number of games in color
+echo -e "\e[32m$win_count\e[0m out of $num_runs games \e[32mwon\e[0m by $team1."
+echo -e "\e[33m$tie_count\e[0m out of $num_runs games \e[33mtied\e[0m by $team1."
+echo -e "\e[31m$loss_count\e[0m out of $num_runs games \e[31mlost\e[0m by $team1."
