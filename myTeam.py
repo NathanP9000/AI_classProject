@@ -242,7 +242,7 @@ class offenseAgent(CaptureAgent):
 #################################################
 ## Moves up and down looking for opportunities ##
 #################################################
-  def roam(self, curr):
+  def roam(self, curr): # Fix
     chosen=-1
     if not self.up:
       chosen = self.entrances[len(self.entrances)-1]
@@ -312,7 +312,7 @@ class offenseAgent(CaptureAgent):
 ######################################
 # Code for escaping back to our side #
 ######################################  
-  def escapeSearch(self,gameState,actions):
+  def escapeSearch(self,gameState,actions): #Need to fix
     self.Escape = True
     # Find escape path
     minDistance = [1000,()]
@@ -347,11 +347,16 @@ class offenseAgent(CaptureAgent):
 ########################################
 ## Chooses action based on heuristics ##
 ########################################
+# 1. Time is lo and I have food, then escape 
+# 2. Look for capsule
+# 3. Update self.escape to false if ghost - Do I need self.escape?
+# 4. Search for closest food. Don't do this if trying to escape
+# 5. Escape(Pacman)/Roam(Ghost) - Improve the roam and escape search
   def chooseAction(self, gameState):
     """
     Picks among the actions with the highest Q(s,a).
     """
-
+    # Updates defenders list
     for enemy in self.getEnemies(gameState):
       if gameState.getAgentState(enemy).isPacman:
         if enemy in self.defenders:
@@ -381,7 +386,7 @@ class offenseAgent(CaptureAgent):
 
     # If I am a ghost, then i am not trying to escape. Check out the Escape code
     if(not gameState.getAgentState(self.index).isPacman):
-      self.Escape = False
+      self.Escape = False # Might not be using self.escape
 
     # Food Search Need to make smarter
     self.closerFood(gameState)
@@ -542,6 +547,10 @@ class offenseAgent(CaptureAgent):
           entrances.append(y)
     return entrances
 
+
+###################
+## Defense Agent ##
+###################
 
 # perfect mirror
 class mirrorDefenseAgent(CaptureAgent):
