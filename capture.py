@@ -460,7 +460,7 @@ class AgentRules:
     """
     legal = AgentRules.getLegalActions( state, agentIndex )
     if action not in legal:
-      raise Exception("Illegal action " + str(action))
+      raise Exception("Illegal action " + str(action) + " done by agent " + str(agentIndex))
 
     # Update Configuration
     agentState = state.data.agentStates[agentIndex]
@@ -990,11 +990,13 @@ def runGames( layouts, agents, display, length, numGames, record, numTraining, r
     scores = [game.state.data.score for game in games]
     redWinRate = [s > 0 for s in scores].count(True)/ float(len(scores))
     blueWinRate = [s < 0 for s in scores].count(True)/ float(len(scores))
+    tieRate = (len(scores) - [s < 0 for s in scores].count(True) - [s > 0 for s in scores].count(True)) / float(len(scores))
+    print('Record:       ', ', '.join([('Blue', 'Tie', 'Red')[max(0, min(2, 1 + s))] for s in scores]))
     print('Average Score:', sum(scores) / float(len(scores)))
     print('Scores:       ', ', '.join([str(score) for score in scores]))
-    print('Red Win Rate:  %d/%d (%.2f)' % ([s > 0 for s in scores].count(True), len(scores), redWinRate))
-    print('Blue Win Rate: %d/%d (%.2f)' % ([s < 0 for s in scores].count(True), len(scores), blueWinRate))
-    print('Record:       ', ', '.join([('Blue', 'Tie', 'Red')[max(0, min(2, 1 + s))] for s in scores]))
+    print('\033[92mRed Win Rate:  %d/%d (%.2f)\033[0m' % ([s > 0 for s in scores].count(True), len(scores), redWinRate))
+    print('\033[91mBlue Win Rate: %d/%d (%.2f)\033[0m' % ([s < 0 for s in scores].count(True), len(scores), blueWinRate))
+    print('\033[93mTies: %d/%d (%.2f)\033[0m' % (len(scores) - [s < 0 for s in scores].count(True) - [s > 0 for s in scores].count(True), len(scores), tieRate))
   return games
 
 def save_score(game):

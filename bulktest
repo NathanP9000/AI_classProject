@@ -18,7 +18,7 @@ fi
 for ((i=1; i<=$num_runs; i++))
 do
   # Run the command and store the output in a variable
-  output=$(python capture.py -r $team1 -b $team2 -i 600 -l RANDOM --quiet)
+  output=$(python capture.py -r $team1 -b $team2 -i 600 -l RANDOM --super-quiet)
 
   echo $output
   
