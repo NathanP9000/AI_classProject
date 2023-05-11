@@ -608,6 +608,47 @@ class mirrorDefenseAgent(CaptureAgent):
         #print("Min distance: ", minDistance)
         self.enemyClosestEntrance = entry
 
+    # what if the enemy is heading towards a new entrance?
+    if len(invaders)==0:
+      # Get the current game state and enemy's latest position
+      currentGameState = self.getCurrentObservation()
+      latestEnemyPos = currentGameState.getAgentState(self.enemyOffenseAgent).getPosition()
+
+      # Get the previous game state and enemy's position at that time
+      previousGameState = self.getPreviousObservation()
+      prevEnemyPos = None
+      if previousGameState is not None:
+          prevEnemyPos = previousGameState.getAgentState(self.enemyOffenseAgent).getPosition()
+      else:
+          prevEnemyPos = latestEnemyPos
+
+      # Initialize minDistance to a high value
+      minDistance = float('inf')
+
+      # Initialize closest entrance and potential new target entrance
+      closestEntry = self.enemyClosestEntrance
+      potentialNewTarget = None
+
+      for entry in self.entrances:
+          currentDistance = self.getMazeDistance(latestEnemyPos, (self.theirSideCenter, entry))
+          prevDistance = self.getMazeDistance(prevEnemyPos, (self.theirSideCenter, entry))
+
+          # If the enemy is closer to this entrance than the previous closest entrance
+          if currentDistance < minDistance:
+              minDistance = currentDistance
+              closestEntry = entry
+
+          # If the enemy is getting closer to this entrance (even if it's not the closest yet)
+          if currentDistance < prevDistance:
+              potentialNewTarget = entry
+
+      # If the enemy is getting farther from the current closest entrance, start moving towards the entrance they are getting closer to
+      if potentialNewTarget and self.getMazeDistance(latestEnemyPos, (self.theirSideCenter, self.enemyClosestEntrance)) > self.getMazeDistance(prevEnemyPos, (self.theirSideCenter, self.enemyClosestEntrance)):
+          self.enemyClosestEntrance = potentialNewTarget
+      else:
+          self.enemyClosestEntrance = closestEntry
+
+
     if len(invaders) > 0:
 
       # ensure you have the right enemy offense agent
