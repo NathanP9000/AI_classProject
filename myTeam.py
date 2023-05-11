@@ -71,7 +71,6 @@ class offenseAgent(CaptureAgent):
     self.targetCap = (0,0)
     self.capsuleTarget = False 
     self.listCloser = []
-    self.Escape = False
     self.targetRoam = None
     self.food = len(self.getFood(gameState).asList())
     self.chasing = {0:0,1:0,2:0,3:0}
@@ -82,6 +81,7 @@ class offenseAgent(CaptureAgent):
   ############################
   def isGoal2(self,successor, targetPosition):
     if successor.getAgentState(self.index).getPosition() == targetPosition:
+      #self.debugDraw(targetPosition, (120,120,120))
       return True
     return False
 
@@ -109,8 +109,6 @@ class offenseAgent(CaptureAgent):
             break
         counter[node[0].getAgentState(self.index).getPosition()] = 1
         children = []  
-
-        #self.debugDraw(node[0].getAgentPosition(self.index), (100,200,50))
         for a in node[0].getLegalActions(self.index):
           children.append((node[0].generateSuccessor(self.index,a),node[1]))# each child is a gamestate
         for child in children:
@@ -149,7 +147,7 @@ class offenseAgent(CaptureAgent):
             break
         counter[node[0].getAgentState(self.index).getPosition()] = 1
         children = []  
-        ##self.debugDraw(node[0].getAgentPosition(self.index), (200,100,150))
+        #self.debugDraw(node[0].getAgentPosition(self.index), (200,100,150))
         for a in node[0].getLegalActions(self.index):
           children.append((node[0].generateSuccessor(self.index,a),node[1]))# each child is a gamestate
         for child in children:
@@ -175,7 +173,9 @@ class offenseAgent(CaptureAgent):
 
   def bfs3Escape(self, gameState, actions):
     def heuristic(gameState2):
-      enemies = self.getEnemies(gameState)
+      # if gameState2.getAgentPosition(self.index)[1] == self.theirSideCenter:
+      #   return -1000
+      enemies = self.getEnemies(gameState,3)
       if enemies == []:
         return 1
       
@@ -225,7 +225,8 @@ class offenseAgent(CaptureAgent):
     foodList = self.getFood(gameState).asList()  
     if len(foodList) <= 2 :
       return False
-    enemies = self.getEnemies(gameState)
+    enemies = self.getEnemies(gameState,10)
+    
     if enemies == []:
       self.listCloser.extend(foodList)
       return True
@@ -237,6 +238,8 @@ class offenseAgent(CaptureAgent):
         ##print("Closeer", food)
         ##self.debugDraw(food, (20,200,150))
         self.listCloser.append(food)
+    # if self.index == 1:
+    #   print(enemies, "ENEMIES   lenFood:", len(self.listCloser)) 
 
 
 #################################################
@@ -278,7 +281,7 @@ class offenseAgent(CaptureAgent):
     if self.capsuleTarget and self.targetCap not in self.getCapsules(gameState):
       self.capsuleTarget = False
     
-    enemies = self.getEnemies(gameState)
+    enemies = self.getEnemies(gameState,10)
     #See if you are closer than the enemy to a capsule
     if self.capsuleTarget == False:
       for cap in self.getCapsules(gameState):
@@ -306,29 +309,34 @@ class offenseAgent(CaptureAgent):
 ############################################
 # Returns non feared non attacking enemies #
 ############################################
-  def getEnemies(self,gameState):
-    return [i for i in self.defenders if (not gameState.getAgentState(i).isPacman) and (not gameState.getAgentState(i).scaredTimer>10)and ( gameState.getAgentState(i).getPosition() != None)]
+  def getEnemies(self,gameState,x):
+    return [i for i in self.defenders if (not gameState.getAgentState(i).isPacman) and (gameState.getAgentState(i).scaredTimer<x)and ( gameState.getAgentState(i).getPosition() != None)]
   
 ######################################
 # Code for escaping back to our side #
 ######################################  
   def escapeSearch(self,gameState,actions): #Need to fix
-    self.Escape = True
+
     # Find escape path
+    #print("escape search")
     minDistance = [1000,()]
-    enemies = self.getEnemies(gameState)
+    enemies = self.getEnemies(gameState,10)
+    #print(enemies, "escapeEnemies")
     for entr in self.entrances:
       enemyDist = 1000
       if enemies!=[]:
-        enemyDist = min([self.distancer.getDistance((self.ourSideCenter,entr), gameState.getAgentState(a).getPosition()) for a in self.getEnemies(gameState)])
+        enemyDist = min([self.distancer.getDistance((self.ourSideCenter,entr), gameState.getAgentState(a).getPosition()) for a in self.getEnemies(gameState,10)])
 
       myDist = self.distancer.getDistance((self.ourSideCenter,entr), gameState.getAgentState(self.index).getPosition())
+      #print(myDist, enemyDist,entr)
       if myDist < enemyDist and myDist < minDistance[0]:
         minDistance = [myDist,entr]
     #print("Escape search")    
     if(minDistance[0] != 1000):# There is an escape nearby so bfs2 to it
       target = (self.ourSideCenter,minDistance[1])
+      #self.debugDraw(target, (100,200,140))
     else: 
+      #print("bfs3")
       ret = self.bfs3Escape(gameState,actions) # no escape nearby, so bfs3 escape
       if ret[1] == False:
         #print("TRAPPED FFS")
@@ -356,41 +364,51 @@ class offenseAgent(CaptureAgent):
     """
     Picks among the actions with the highest Q(s,a).
     """
-    # Updates defenders list
-    for enemy in self.getEnemies(gameState):
+    myPos = gameState.getAgentState(self.index).getPosition()
+    prev = self.getPreviousObservation()
+    actions = gameState.getLegalActions(self.index)
+    #Roam if just returned to prevent repetition, but this is actually a heuristic problem
+    # if prev!= None and prev.getAgentState(self.index).isPacman and (not gameState.getAgentState(self.index).isPacman):
+    #   #Roam Code
+    #   if myPos == self.targetRoam:
+    #     self.targetRoam = (self.ourSideCenter, self.roam(myPos[1]))
+    #   elif self.targetRoam == None:
+    #     self.targetRoam = (self.ourSideCenter, self.roam(myPos[1]))
+    #     self.debugDraw(self.targetRoam,(100,100,200))
+      
+    #   ret = self.bfs2Roam(gameState,actions,self.targetRoam)
+    #self.debugClear()
+    # Updates defenders list REDUNDANT 
+    for enemy in self.getEnemies(gameState,10):
       if gameState.getAgentState(enemy).isPacman:
         if enemy in self.defenders:
             self.defenders.remove(enemy)        
 
     for enemy in self.getOpponents(gameState):
-      if gameState.getAgentDistances()[enemy] < 5:
+      #print(gameState.getAgentDistances()[enemy])
+      if gameState.getAgentDistances()[enemy] < 3:
         if enemy not in self.defenders:
           self.defenders.append(enemy)
-        
-
-    actions = gameState.getLegalActions(self.index)
-    myPos = gameState.getAgentState(self.index).getPosition()
+    #print(self.getEnemies(gameState, 10))
     #self.debugClear()
     if(not gameState.getAgentState(self.index).isPacman):
       self.food = len(self.getFood(gameState).asList())
     
     #If time is lo I'm a pacman and carrying food, then escape
     if(gameState.data.timeleft < 200 and gameState.getAgentState(self.index).isPacman and self.food - len(self.getFood(gameState).asList()) > 0):
-      ret = self.bfs3Escape(gameState,actions)
-      return ret[0]
+      return self.escapeSearch(gameState, actions)
 
     # Capsule Search
     capsuleMove = self.capsuleAction(gameState, actions)
     if capsuleMove != False:
       return capsuleMove
 
-    # If I am a ghost, then i am not trying to escape. Check out the Escape code
-    if(not gameState.getAgentState(self.index).isPacman):
-      self.Escape = False # Might not be using self.escape
-
+    # # If I am a ghost, then i am not trying to escape. Check out the Escape code
+    # if(not gameState.getAgentState(self.index).isPacman):
+    #   self.Escape = False # Might not be using self.escape
     # Food Search Need to make smarter
     self.closerFood(gameState)
-    if(len(self.listCloser) > 0) and self.Escape == False:
+    if(len(self.listCloser) > 0):
       minDistance = [1000,()]
       organized = util.PriorityQueue()
       for food in self.listCloser:
@@ -399,7 +417,9 @@ class offenseAgent(CaptureAgent):
 
       foodClosestEntrance = None
       target = None
-      indices = self.getEnemies(gameState)
+      indices = self.getEnemies(gameState,10)
+      # if self.index == 1:
+      #   print(self.index, "self",indices, "indices ")
       if indices == []:
         target, dist = organized.pop()
         ret = self.bfs2(gameState, actions, target)
@@ -439,7 +459,7 @@ class offenseAgent(CaptureAgent):
           theirHeuristic = 0
           if gameState.getAgentState(self.index).isPacman:
             ourHeuristic = dist+ourDistancetoEntranceFromFood
-            theirHeuristic = theirDistancetoEntrance-1
+            theirHeuristic = theirDistancetoEntrance
           else:
             ourHeuristic= ourDistancetoEntranceFromFood + self.distancer.getDistance(foodClosestEntrance, onFood)
             theirHeuristic = theirDistancetoEntrance
@@ -459,14 +479,17 @@ class offenseAgent(CaptureAgent):
       
     # Escape Search
     if(gameState.getAgentState(self.index).isPacman):
+      #print("ESCAPE")
       return self.escapeSearch(gameState, actions)
     else:
-      #Roam Code
-      if myPos == self.targetRoam:
+  
+      if self.targetRoam != None and myPos == self.targetRoam:
+        #print("target")
         self.targetRoam = (self.ourSideCenter, self.roam(myPos[1]))
       elif self.targetRoam == None:
         self.targetRoam = (self.ourSideCenter, self.roam(myPos[1]))
-      ##self.debugDraw(self.targetRoam,(100,100,200))
+      # if self.index == 0:
+      #   self.debugDraw(self.targetRoam,(100,100,200))
       
       ret = self.bfs2Roam(gameState,actions,self.targetRoam)
       return ret[0]
@@ -559,31 +582,31 @@ class mirrorDefenseAgent(CaptureAgent):
   If the enemy agent turns into a pac man, that pacman is listed as the offense agent and is mirrored now
   """
   def registerInitialState(self, gameState):
-      CaptureAgent.registerInitialState(self, gameState)
-      self.start = gameState.getAgentPosition(self.index)
-      if self.red:
-        self.ourSideCenter = gameState.data.layout.width // 2 - 1
-        self.theirSideCenter = gameState.data.layout.width // 2
-        self.enemyOffenseAgent = 1
-      else:
-        self.enemyOffenseAgent = 0
-        self.ourSideCenter = gameState.data.layout.width // 2 
-        self.theirSideCenter = gameState.data.layout.width // 2 - 1
-      self.entrances = self.findEntrances(gameState)
-      self.enemyClosestEntrance = self.entrances[0]
-      minDistance = 100
-      for entry in self.entrances:
-        if self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry)) < minDistance:
-          minDistance = self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry))
-          #print("Min distance: ", minDistance)
-          self.enemyClosestEntrance = entry
-      # our side center and their side center for entrance calculations
-      #print("Entrances: ", self.entrances)
-      # for entrance in self.entrances:
-      #   self.debugDraw((self.ourSideCenter, entrance), (200, 200, 200))
-      #   self.debugDraw((self.theirSideCenter, entrance), (100, 100, 200))
-      self.offenseagent = offenseAgent(self.index)
-      self.offenseagent.registerInitialState(gameState)
+    CaptureAgent.registerInitialState(self, gameState)
+    self.start = gameState.getAgentPosition(self.index)
+    if self.red:
+      self.ourSideCenter = gameState.data.layout.width // 2 - 1
+      self.theirSideCenter = gameState.data.layout.width // 2
+      self.enemyOffenseAgent = 1
+    else:
+      self.enemyOffenseAgent = 0
+      self.ourSideCenter = gameState.data.layout.width // 2 
+      self.theirSideCenter = gameState.data.layout.width // 2 - 1
+    self.entrances = self.findEntrances(gameState)
+    self.enemyClosestEntrance = self.entrances[0]
+    minDistance = 100
+    for entry in self.entrances:
+      if self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry)) < minDistance:
+        minDistance = self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry))
+        #print("Min distance: ", minDistance)
+        self.enemyClosestEntrance = entry
+    # our side center and their side center for entrance calculations
+    #print("Entrances: ", self.entrances)
+    # for entrance in self.entrances:
+    #   self.debugDraw((self.ourSideCenter, entrance), (200, 200, 200))
+    #   self.debugDraw((self.theirSideCenter, entrance), (100, 100, 200))
+    # self.offenseagent = offenseAgent(self.index)
+    # self.offenseagent.registerInitialState(gameState)
 
   def chooseAction(self, gameState):
     """
@@ -597,6 +620,9 @@ class mirrorDefenseAgent(CaptureAgent):
     # You can profile your evaluation time by uncommenting these lines
     # start = time.time()
     values = []
+
+
+
     # if their defender is scared, eat them (instantiating values)
     #defenderIndex = [i for i in enemiesIndexes if i != self.enemyOffenseAgent][0]
     #defenderAgent = gameState.getAgentState(defenderIndex)
@@ -607,6 +633,47 @@ class mirrorDefenseAgent(CaptureAgent):
         minDistance = self.getMazeDistance(gameState.getAgentState(self.enemyOffenseAgent).getPosition(), (self.theirSideCenter,entry))
         #print("Min distance: ", minDistance)
         self.enemyClosestEntrance = entry
+
+    # what if the enemy is heading towards a new entrance?
+    if len(invaders)==0:
+      # Get the current game state and enemy's latest position
+      currentGameState = self.getCurrentObservation()
+      latestEnemyPos = currentGameState.getAgentState(self.enemyOffenseAgent).getPosition()
+
+      # Get the previous game state and enemy's position at that time
+      previousGameState = self.getPreviousObservation()
+      prevEnemyPos = None
+      if previousGameState is not None:
+          prevEnemyPos = previousGameState.getAgentState(self.enemyOffenseAgent).getPosition()
+      else:
+          prevEnemyPos = latestEnemyPos
+
+      # Initialize minDistance to a high value
+      minDistance = float('inf')
+
+      # Initialize closest entrance and potential new target entrance
+      closestEntry = self.enemyClosestEntrance
+      potentialNewTarget = None
+
+      for entry in self.entrances:
+          currentDistance = self.getMazeDistance(latestEnemyPos, (self.theirSideCenter, entry))
+          prevDistance = self.getMazeDistance(prevEnemyPos, (self.theirSideCenter, entry))
+
+          # If the enemy is closer to this entrance than the previous closest entrance
+          if currentDistance < minDistance:
+              minDistance = currentDistance
+              closestEntry = entry
+
+          # If the enemy is getting closer to this entrance (even if it's not the closest yet)
+          if currentDistance < prevDistance:
+              potentialNewTarget = entry
+
+      # If the enemy is getting farther from the current closest entrance, start moving towards the entrance they are getting closer to
+      if potentialNewTarget and self.getMazeDistance(latestEnemyPos, (self.theirSideCenter, self.enemyClosestEntrance)) > self.getMazeDistance(prevEnemyPos, (self.theirSideCenter, self.enemyClosestEntrance)):
+          self.enemyClosestEntrance = potentialNewTarget
+      else:
+          self.enemyClosestEntrance = closestEntry
+
 
     if len(invaders) > 0:
 
@@ -974,73 +1041,73 @@ class mirrorDefenseAgent(CaptureAgent):
     return 100
     #end A* search
 
-  def offenseFoodFinder(self, gameState, offenseAgent):
-    # Food Search Need to make smarter
-    offenseAgent.closerFood(gameState)
-    if(len(offenseAgent.listCloser) > 0) and self.Escape == False:
-      minDistance = [1000,()]
-      organized = util.PriorityQueue()
-      for food in offenseAgent.listCloser:
-        distance = self.distancer.getDistance(myPos, food) 
-        organized.push((food,distance),distance)
+  # def offenseFoodFinder(self, gameState, offenseAgent):
+  #   # Food Search Need to make smarter
+  #   offenseAgent.closerFood(gameState)
+  #   if(len(offenseAgent.listCloser) > 0) and self.Escape == False:
+  #     minDistance = [1000,()]
+  #     organized = util.PriorityQueue()
+  #     for food in offenseAgent.listCloser:
+  #       distance = self.distancer.getDistance(myPos, food) 
+  #       organized.push((food,distance),distance)
 
-      foodClosestEntrance = None
-      target = None
-      indices = offenseAgent.getEnemies(gameState)
-      if indices == []:
-        #print("they are feared")
-        target, dist = organized.pop()
-        ret = offenseAgent.bfs2(gameState, actions, target)
-        if ret[1] == False:
-          # print("no path found to food")
-          pass
-        else:
-          return ret[0]
-      else:
-        #Find closest enemy index
-        dist = gameState.getAgentDistances() # indices give us distance
-        values = [dist[a] for a in indices] 
-        minValue = min(values)
-        closestEnemyIndex = [a for a, v in zip(indices, values) if v == minValue] # Choose the best action
-        closestEnemyIndex = random.choice(closestEnemyIndex)
-        minDistance2 = 100
-        itsPossible = False
-        onFood = None
-        while (not itsPossible) and organized.isEmpty() == False:
-          onFood, dist = organized.pop() # (pos), distance
-          #print(dist, "To food closest")
-          #self.debugDraw(onFood, (50,150,24))
-          # Distance from food to every entrance
-          for entry in self.entrances:
-            if self.getMazeDistance(onFood, (self.ourSideCenter,entry)) < minDistance2:
-              minDistance2 = self.getMazeDistance(onFood, (self.ourSideCenter,entry))
-              #print("Min distance: ", minDistance)
-              foodClosestEntrance = (self.ourSideCenter, entry)
+  #     foodClosestEntrance = None
+  #     target = None
+  #     indices = offenseAgent.getEnemies(gameState)
+  #     if indices == []:
+  #       #print("they are feared")
+  #       target, dist = organized.pop()
+  #       ret = offenseAgent.bfs2(gameState, actions, target)
+  #       if ret[1] == False:
+  #         # print("no path found to food")
+  #         pass
+  #       else:
+  #         return ret[0]
+  #     else:
+  #       #Find closest enemy index
+  #       dist = gameState.getAgentDistances() # indices give us distance
+  #       values = [dist[a] for a in indices] 
+  #       minValue = min(values)
+  #       closestEnemyIndex = [a for a, v in zip(indices, values) if v == minValue] # Choose the best action
+  #       closestEnemyIndex = random.choice(closestEnemyIndex)
+  #       minDistance2 = 100
+  #       itsPossible = False
+  #       onFood = None
+  #       while (not itsPossible) and organized.isEmpty() == False:
+  #         onFood, dist = organized.pop() # (pos), distance
+  #         #print(dist, "To food closest")
+  #         #self.debugDraw(onFood, (50,150,24))
+  #         # Distance from food to every entrance
+  #         for entry in self.entrances:
+  #           if self.getMazeDistance(onFood, (self.ourSideCenter,entry)) < minDistance2:
+  #             minDistance2 = self.getMazeDistance(onFood, (self.ourSideCenter,entry))
+  #             #print("Min distance: ", minDistance)
+  #             foodClosestEntrance = (self.ourSideCenter, entry)
 
-          #Their distance to this entrance
-          # print(foodClosestEntrance, "Hi")
-          # print(closestEnemyIndex, "Hi2")
-          #self.debugDraw(foodClosestEntrance, (230,120,200))
-          theirDistancetoEntrance = self.distancer.getDistance(gameState.getAgentPosition(closestEnemyIndex), foodClosestEntrance)
-          ourDistancetoEntranceFromFood = self.distancer.getDistance(onFood, foodClosestEntrance)
-          ourHeuristic = 0
-          theirHeuristic = 0
-          if gameState.getAgentState(self.index).isPacman:
-            ourHeuristic = dist*2+ourDistancetoEntranceFromFood
-            theirHeuristic = theirDistancetoEntrance-1
-          else:
-            ourHeuristic= ourDistancetoEntranceFromFood + self.distancer.getDistance(foodClosestEntrance, onFood)
-            theirHeuristic = theirDistancetoEntrance
-          #print("ours", ourHeuristic)
-          #print("Their heurisitc,",theirHeuristic)
-          if ( ourHeuristic < theirHeuristic ): 
-            itsPossible = True
-        if itsPossible == False:
-          pass
-        else:
-          ret = offenseAgent.bfs2(gameState, actions, onFood)
-          if ret[1] == False:
-            # print("no path found to food")
-            pass
-          else:
-            return ret[0]
+  #         #Their distance to this entrance
+  #         # print(foodClosestEntrance, "Hi")
+  #         # print(closestEnemyIndex, "Hi2")
+  #         #self.debugDraw(foodClosestEntrance, (230,120,200))
+  #         theirDistancetoEntrance = self.distancer.getDistance(gameState.getAgentPosition(closestEnemyIndex), foodClosestEntrance)
+  #         ourDistancetoEntranceFromFood = self.distancer.getDistance(onFood, foodClosestEntrance)
+  #         ourHeuristic = 0
+  #         theirHeuristic = 0
+  #         if gameState.getAgentState(self.index).isPacman:
+  #           ourHeuristic = dist*2+ourDistancetoEntranceFromFood
+  #           theirHeuristic = theirDistancetoEntrance-1
+  #         else:
+  #           ourHeuristic= ourDistancetoEntranceFromFood + self.distancer.getDistance(foodClosestEntrance, onFood)
+  #           theirHeuristic = theirDistancetoEntrance
+  #         #print("ours", ourHeuristic)
+  #         #print("Their heurisitc,",theirHeuristic)
+  #         if ( ourHeuristic < theirHeuristic ): 
+  #           itsPossible = True
+  #       if itsPossible == False:
+  #         pass
+  #       else:
+  #         ret = offenseAgent.bfs2(gameState, actions, onFood)
+  #         if ret[1] == False:
+  #           # print("no path found to food")
+  #           pass
+  #         else:
+  #           return ret[0]
